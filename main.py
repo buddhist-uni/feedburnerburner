@@ -7,6 +7,7 @@ from utils import FileSyncedSet, system_open, prompt
 
 import feedparser
 from yaspin import yaspin
+from bs4 import BeautifulSoup
 
 db_dir = Path("~/.feedburnerburner").expanduser()
 if not db_dir.exists():
@@ -85,7 +86,9 @@ if __name__ == '__main__':
         print("\tTitle: " + entry.title)
         print("\tSummary: " + entry.summary)
         if prompt("Open this one?"):
-            system_open(entry.link)
+            soup = BeautifulSoup(entry.summary, 'html.parser')
+            link = soup.find('a')['href']
+            system_open(link)
             if prompt("Was this one worth your time?"):
                 entry.status = "liked"
                 entry.save()
@@ -96,3 +99,4 @@ if __name__ == '__main__':
             entry.status = "skipped"
             entry.save()
         unread_entries.remove(entry)
+    print("That's all for now, folks!")
