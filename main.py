@@ -85,7 +85,7 @@ if __name__ == '__main__':
         print("Would you like to open this one?")
         print("\tTitle: " + entry.title)
         print("\tSummary: " + entry.summary)
-        if prompt("Open this one?"):
+        if prompt("Open this one?", 'n'):
             soup = BeautifulSoup(entry.summary, 'html.parser')
             link = soup.find('a')['href']
             system_open(link)
