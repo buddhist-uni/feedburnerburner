@@ -99,4 +99,5 @@ if __name__ == '__main__':
             entry.status = "skipped"
             entry.save()
         unread_entries.remove(entry)
+        print('')
     print("That's all for now, folks!")
