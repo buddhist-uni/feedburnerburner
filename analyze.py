@@ -32,9 +32,12 @@ r = min(30, len(tags))
 print(f"So far you've liked {int(liked)}/{int(count)}={liked*100.0/count:.1f}% of the posts.")
 if r > 0:
   print(f"""Top {r} tags are:""")
+  toplikes = 0
   for i in range(r):
     tag = tags[i]
+    toplikes += tag_likes[tag]
     print(f"{i+1}. {tag} ({int(tag_likes[tag])}/{int(tag_count[tag])}={100.0*tag_likes[tag]/tag_count[tag]:.1f}%)")
+  print(f"\nSubscribing to just these would have given you {int(toplikes)}/{int(liked)}={toplikes*100.0/liked:.1f}% of the posts you've liked.")
 else:
   print("Insufficient data to recommend even a single tag.")
 
