@@ -24,7 +24,7 @@ class FileSyncedSet:
         self.file_name = file_name
         self.items = set()
         # normalizer must return a string with no newlines
-        self.norm = normalizer or (lambda a: str(a).replace("/n", " "))
+        self.norm = normalizer or (lambda a: str(a).replace("\n", " "))
         if os.path.exists(file_name):
             with open(file_name) as fd:
                 for item in fd:
