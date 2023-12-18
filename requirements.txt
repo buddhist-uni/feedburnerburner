@@ -2,3 +2,4 @@ setuptools~=68.2.2
 yaspin~=3.0.1
 feedparser~=6.0.10
 beautifulsoup4
+titlecase

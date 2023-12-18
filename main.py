@@ -3,7 +3,12 @@ import json
 from time import mktime
 from pathlib import Path
 
-from utils import FileSyncedSet, system_open, prompt
+from utils import (
+    FileSyncedSet,
+    system_open,
+    prompt,
+    radio_dial
+)
 
 import feedparser
 from yaspin import yaspin
@@ -85,19 +90,36 @@ if __name__ == '__main__':
         print("Would you like to open this one?")
         print("\tTitle: " + entry.title)
         print("\tSummary: " + entry.summary)
-        if prompt("Open this one?", 'n'):
-            soup = BeautifulSoup(entry.summary, 'html.parser')
-            link = soup.find('a')['href']
-            system_open(link)
-            if prompt("Was this one worth your time?"):
-                entry.status = "liked"
-                entry.save()
-            else:
-                entry.status = "disliked"
-                entry.save()
-        else:
+        soup = BeautifulSoup(entry.summary, 'html.parser')
+        links = soup.find_all('a')
+        links = [l['href'] for l in links]
+        choice = radio_dial([
+            "Not interested",
+            "Show again later",
+        ]+links)
+        if choice == 0:
             entry.status = "skipped"
             entry.save()
-        unread_entries.remove(entry)
-        print('')
+            unread_entries.remove(entry)
+            continue
+        if choice == 1:
+            continue
+        while choice > 1:
+            print("  How was it?")
+            link = links.pop(choice-2)
+            system_open(link)
+            choice = radio_dial([
+                "Waste of time",
+                "Worthwhile",
+            ]+links)
+        if choice == 0:
+            entry.status = "disliked"
+            entry.save()
+            unread_entries.remove(entry)
+            continue
+        if choice == 1:
+            entry.status = "liked"
+            entry.save()
+            unread_entries.remove(entry)
+            continue
     print("That's all for now, folks!")
