@@ -2,6 +2,7 @@
 import json
 from time import mktime
 from pathlib import Path
+from functools import cache
 
 from utils import (
     FileSyncedSet,
@@ -35,6 +36,7 @@ class FeedEntry:
             self.timestamp = data.get('timestamp')
             self.tags = data.get('tags')
             self.status = data.get('status')
+            self.clicked_links = data.get('clicked_links') or []
         if feed_entry:
             self.title = feed_entry.get('title')
             self.summary = feed_entry.get('summary')
@@ -44,19 +46,29 @@ class FeedEntry:
             self.timestamp = int(mktime(feed_entry.published_parsed))
             self.tags = [tag.term for tag in feed_entry.get('tags')]
             self.status = "unread"
+            self.clicked_links = []
 
     @property
     def fbbid(self):
         return guid_to_fbbid(self.guid)
 
     @property
+    @cache
+    def soup(self):
+        return BeautifulSoup(self.summary, 'html.parser')
+
+    @property
+    @cache
+    def links(self):
+        return [a['href'] for a in self.soup.find_all('a')]
+
+    @property
     def file_path(self):
         return db_dir.joinpath(f"{self.fbbid}.json")
 
     def save(self):
-        self.file_path.write_text(self.json)
+        self.file_path.write_text(self.json())
 
-    @property
     def json(self) -> str:
         return json.dumps({
             'title': self.title,
@@ -66,7 +78,8 @@ class FeedEntry:
             'guid': self.guid,
             'timestamp': self.timestamp,
             'tags': self.tags,
-            'status': self.status
+            'status': self.status,
+            'clicked_links': self.clicked_links,
         }, sort_keys=True)
 
 
@@ -90,9 +103,7 @@ if __name__ == '__main__':
         print("Would you like to open this one?")
         print("\tTitle: " + entry.title)
         print("\tSummary: " + entry.summary)
-        soup = BeautifulSoup(entry.summary, 'html.parser')
-        links = soup.find_all('a')
-        links = [l['href'] for l in links]
+        links = entry.links
         choice = radio_dial([
             "Not interested",
             "Show again later",
@@ -107,6 +118,7 @@ if __name__ == '__main__':
         while choice > 1:
             print("  How was it?")
             link = links.pop(choice-2)
+            entry.clicked_links.append(link)
             system_open(link)
             choice = radio_dial([
                 "Waste of time",
