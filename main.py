@@ -148,7 +148,7 @@ if __name__ == '__main__':
                 unread_entries.add(feed_entry)
                 unread_items.append(feed_entry)
     print(f"Found {len(unread_items)} unread items!")
-    if SETTINGS_FILE.exists():
+    if len(unread_items) > 0 and SETTINGS_FILE.exists():
         settings = yaml.safe_load(SETTINGS_FILE.read_text())
         if settings['algo'] == "tagsubscriber":
             domains = set(settings['domains'])
