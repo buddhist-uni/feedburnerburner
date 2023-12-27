@@ -1,6 +1,12 @@
 #!/bin/python3
 from collections import defaultdict
+import yaml
+from utils import (
+   prompt,
+   checklist_prompt,
+)
 from main import (
+    SETTINGS_FILE,
     yaspin,
     db_dir,
     FeedEntry
@@ -47,14 +53,35 @@ if r > 0:
     tag = tags[i]
     toplikes.update(tag_likes[tag])
     print(f"{i+1}. {tag} ({len(tag_likes[tag])}/{int(tag_count[tag])}={100.0*len(tag_likes[tag])/tag_count[tag]:.1f}%)")
-  r = min(30, len(domains))
-  if r > 0:
-     print(f"\nYour {r} top-liked domains are:")
-     for i in range(r):
+  s = min(30, len(domains))
+  if s > 0:
+     print(f"\nYour {s} top-liked domains are:")
+     for i in range(s):
         domain = domains[i]
         toplikes.update(domain_likes[domain])
         print(f"{i+1}. {domain} ({len(domain_likes[domain])}/{int(domain_counts[domain])}={len(domain_likes[domain])*100.0/domain_counts[domain]:.1f}%)")
   print(f"\nSubscribing to just these would have given you {len(toplikes)}/{int(liked)}={len(toplikes)*100.0/liked:.1f}% of the posts you've liked.")
+  if prompt("Would you like to filter your posts based on the above? (n=See all, ctrl+c to Cancel)"):
+    print("Select the tags you'd like to subscribe to:")
+    selections = checklist_prompt(tags[:r], default=True)
+    tags = [tags[i] for i in range(r) if selections[i]]
+    print("Please select domains to subscribe to:")
+    selections = checklist_prompt(domains[:s], default=True)
+    domains = [domains[i] for i in range(s) if selections[i]]
+    toplikes = set()
+    for tag in tags:
+       toplikes.update(tag_likes[tag])
+    for domain in domains:
+       toplikes.update(domain_likes[domain])
+    print(f"\nSubscribing to just these would have given you {len(toplikes)}/{int(liked)}={len(toplikes)*100.0/liked:.1f}% of the posts you've liked.")
+    SETTINGS_FILE.write_text(yaml.dump({
+       "algo": "tagsubscriber",
+       "domains": domains,
+       "tags": tags,
+    }))
+  else:
+    SETTINGS_FILE.write_text(yaml.dump({"algo": "none"}))
+  print("Settings successfully saved!")
 else:
   print("Insufficient data to recommend even a single tag.")
 

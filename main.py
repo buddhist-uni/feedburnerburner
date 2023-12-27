@@ -4,6 +4,7 @@ from time import mktime
 from urllib.parse import urlparse
 from pathlib import Path
 from functools import cache
+import yaml
 
 from utils import (
     FileSyncedSet,
@@ -20,7 +21,7 @@ db_dir = Path("~/.feedburnerburner").expanduser()
 if not db_dir.exists():
     db_dir.mkdir()
 unread_entries = FileSyncedSet(db_dir.joinpath('unread.tsv'), lambda e: e.fbbid)
-
+SETTINGS_FILE = db_dir.joinpath('settings.yaml')
 
 def guid_to_fbbid(guid: str) -> str:
     return guid.replace(":", "=").replace(",", "_")
@@ -94,22 +95,7 @@ class FeedEntry:
         }, sort_keys=True)
 
 
-if __name__ == '__main__':
-    unread_items: list[FeedEntry] = []
-    with yaspin(text="Loading feed..."):
-        for fbbid in unread_entries.items:
-            fbbid = fbbid.replace("\n", "")
-            if not fbbid:
-                continue
-            unread_items.append(FeedEntry(json_file=db_dir.joinpath(f"{fbbid}.json")))
-        latest_feed = feedparser.parse('https://feeds.feedburner.com/Metafilter')
-        for entry in latest_feed.entries:
-            feed_entry = FeedEntry(feed_entry=entry)
-            if not feed_entry.file_path.exists():
-                feed_entry.save()
-                unread_entries.add(feed_entry)
-                unread_items.append(feed_entry)
-    print(f"Found {len(unread_items)} unread items!")
+def display_loop(unread_items: list[FeedEntry]):
     for entry in unread_items:
         print("Would you like to open this one?")
         print("\tTitle: " + entry.title)
@@ -145,4 +131,38 @@ if __name__ == '__main__':
             entry.save()
             unread_entries.remove(entry)
             continue
+
+if __name__ == '__main__':
+    unread_items: list[FeedEntry] = []
+    with yaspin(text="Loading feed..."):
+        for fbbid in unread_entries.items:
+            fbbid = fbbid.replace("\n", "")
+            if not fbbid:
+                continue
+            unread_items.append(FeedEntry(json_file=db_dir.joinpath(f"{fbbid}.json")))
+        latest_feed = feedparser.parse('https://feeds.feedburner.com/Metafilter')
+        for entry in latest_feed.entries:
+            feed_entry = FeedEntry(feed_entry=entry)
+            if not feed_entry.file_path.exists():
+                feed_entry.save()
+                unread_entries.add(feed_entry)
+                unread_items.append(feed_entry)
+    print(f"Found {len(unread_items)} unread items!")
+    if SETTINGS_FILE.exists():
+        settings = yaml.safe_load(SETTINGS_FILE.read_text())
+        if settings['algo'] == "tagsubscriber":
+            domains = set(settings['domains'])
+            tags = set(settings['tags'])
+            highpri = [item for item in unread_items if any(d in domains for d in item.domains_for_rating()) or any(t in tags for t in item.tags)]
+            if len(highpri) == 0:
+                print("But none of them are important")
+            else:
+                print(f"{len(highpri)} of them are marked priority based on the tags and domains you're subscribed to:")
+                display_loop(highpri)
+                unread_items = [item for item in unread_items if item not in highpri]
+            if len(unread_items) > 0:
+                if not prompt("Continue to read the unimportant posts?"):
+                    print("Sounds good! Enjoy your day! :)")
+                    quit()
+    display_loop(unread_items)
     print("That's all for now, folks!")
