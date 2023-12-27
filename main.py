@@ -1,6 +1,7 @@
 #!/bin/python3
 import json
 from time import mktime
+from urllib.parse import urlparse
 from pathlib import Path
 from functools import cache
 
@@ -60,7 +61,17 @@ class FeedEntry:
     @property
     @cache
     def links(self):
-        return [a['href'] for a in self.soup.find_all('a')]
+        return [a['href'] for a in self.soup.find_all('a', href=True)]
+    
+    def links_for_rating(self):
+        if self.status == "liked":
+            return self.clicked_links or self.links
+        else:
+            return self.links
+    
+    def domains_for_rating(self):
+        links = self.links_for_rating()
+        return list({'.'.join(urlparse(url).hostname.split('.')[-2:]) for url in links})
 
     @property
     def file_path(self):
