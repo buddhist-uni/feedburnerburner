@@ -1,100 +1,76 @@
 #!/bin/python3
-from collections import defaultdict
+
 import yaml
 from utils import (
    prompt,
    checklist_prompt,
+   radio_dial,
 )
 from main import (
     SETTINGS_FILE,
     yaspin,
     db_dir,
+    settings,
 )
-from models import FeedEntry
+from models import (
+   ALL_MODELS,
+)
+from models.base import (
+   Corpus,
+   ModelStatus,
+)
+from models.feed import (
+   FeedEntry,
+)
 
-class TagCloud:
-   def __init__(self):
-      self.likes = defaultdict(list)
-      self.counts = defaultdict(float)
-   
-   def add_like(self, tag, entry):
-      self.counts[tag] += 1.0
-      self.likes[tag].append(entry)
-   
-   def add_dislike(self, tag):
-      self.counts[tag] += 1.0
-   
-   def top(self, N=30, min_likes=2, min_ratio=0.2):
-      ret = list(self.likes.keys())
-      ret = [k for k in ret if len(self.likes[k])>=min_likes and (len(self.likes[k])/self.counts[k])>=min_ratio]
-      ret.sort(key=lambda k: len(self.likes[k])/self.counts[k], reverse=True)
-      return ret[:N]
+HELP_STRING = """
+INSTRUCTIONS:
+1. Select a model to initialize it.
 
-entries = []
-tags = TagCloud()
-domains = TagCloud()
-count = 0.0
-liked = 0.0
-with yaspin(text='Crunching the numbers...'):
-    for fd in db_dir.iterdir():
-        if fd.name.endswith('.json'):
-            entries.append(FeedEntry(json_file=fd))
-    for entry in entries:
-        count += 1.0
-        inc = 0.0
-        if entry.status == 'liked':
-            liked += 1.0
-        for tag in entry.tags:
-            if entry.status == 'liked':
-               tags.add_like(tag, entry)
-            else:
-               tags.add_dislike(tag)
-        for domain in entry.domains_for_rating():
-           if entry.status == 'liked':
-              domains.add_like(domain, entry)
-           else:
-              domains.add_dislike(domain)
-ratio = liked/count
-print(f"So far you've liked {int(liked)}/{int(count)}={ratio*100.0:.1f}% of the posts.")
-top_tags = tags.top(min_ratio=ratio)
-r = len(top_tags)
-if r > 0:
-  print(f"""Top {r} tags are:""")
-  toplikes = set()
-  for i in range(r):
-    tag = top_tags[i]
-    toplikes.update(tags.likes[tag])
-    print(f"{i+1}. {tag} ({len(tags.likes[tag])}/{int(tags.counts[tag])}={100.0*len(tags.likes[tag])/tags.counts[tag]:.1f}%)")
-  top_domains = domains.top(min_ratio=ratio)
-  s = len(top_domains)
-  if s > 0:
-     print(f"\nYour {s} top-liked domains are:")
-     for i in range(s):
-        domain = top_domains[i]
-        toplikes.update(domains.likes[domain])
-        print(f"{i+1}. {domain} ({len(domains.likes[domain])}/{int(domains.counts[domain])}={len(domains.likes[domain])*100.0/domains.counts[domain]:.1f}%)")
-  print(f"\nSubscribing to just these would have given you {len(toplikes)}/{int(liked)}={len(toplikes)*100.0/liked:.1f}% of the posts you've liked.")
-  if prompt("Would you like to filter your posts based on the above? (n=See all, ctrl+c to Cancel)"):
-    print("Select the tags you'd like to subscribe to:")
-    selections = checklist_prompt(tags[:r], default=True)
-    tags = [tags[i] for i in range(r) if selections[i]]
-    print("Please select domains to subscribe to:")
-    selections = checklist_prompt(domains[:s], default=True)
-    domains = [domains[i] for i in range(s) if selections[i]]
-    toplikes = set()
-    for tag in tags:
-       toplikes.update(tags.likes[tag])
-    for domain in domains:
-       toplikes.update(domains.likes[domain])
-    print(f"\nSubscribing to just these would have given you {len(toplikes)}/{int(liked)}={len(toplikes)*100.0/liked:.1f}% of the posts you've liked.")
-    SETTINGS_FILE.write_text(yaml.dump({
-       "algo": "tagsubscriber",
-       "domains": domains,
-       "tags": tags,
-    }))
-  else:
-    SETTINGS_FILE.write_text(yaml.dump({"algo": "none"}))
-  print("Settings successfully saved!")
-else:
-  print("Insufficient data to recommend even a single tag.")
+2. Once initialized, the model will summarize its accuracy with a string like:
+   (P=20% R=100% => 45%)
+This means that the model estimates its Precision (True Positive Rate) at 20%
+and its Recall (1 - False Negative Rate) at 100% for a total "accuracy" of
+sqrt(P*R) => 45%
 
+3. Once initialized, select a model a second time to choose it as your feed filter
+
+MODELS:
+""" + '\n'.join([f"- {model.NAME} Model\n  {model.DESCRIPTION}" for model in ALL_MODELS]) + "\n"
+
+if __name__ == '__main__':
+   corpus = Corpus()
+   with yaspin(text='Loading...'):
+      for fd in db_dir.iterdir():
+         if fd.name.endswith('.json'):
+            corpus.add_entry(FeedEntry(json_file=fd))
+   models = [MC(corpus) for MC in ALL_MODELS]
+   while True:
+      print("Choose a model:")
+      options = [f"{model.NAME} ({model.get_status_summary()})" for model in models]
+      options.extend(["Help", "Exit (No change)"])
+      selection = radio_dial(options)
+      if selection < len(models):
+         selected_model = models[selection]
+         if selected_model.status == ModelStatus.Invalid:
+            print(f"This model requires at least {selected_model.MIN_DATA} to use.")
+            continue
+         if selected_model.status == ModelStatus.Unanalyzed:
+            selected_model.analyze()
+         if selected_model.status == ModelStatus.Analyzed:
+            if selected_model.is_refinable() and prompt("Would you like to refine this model?"):
+               selected_model.refine()
+            if prompt("Use this model for your feed filter?"):
+               settings['algo'] = selected_model.NAME
+               settings['algo_params'] = selected_model.get_parameters()
+               SETTINGS_FILE.write_text(yaml.dump(settings))
+               print("Settings saved! Enjoy your feed :)")
+               quit(0)
+            continue
+      selection -= len(models)
+      match selection:
+         case 0:
+            print(HELP_STRING)
+            continue
+         case 1:
+            quit(0)

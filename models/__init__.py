@@ -1,6 +1,11 @@
 #!/bin/python3
 
-from .feed import FeedEntry
+from .empty import EmptyModel
+from .metadata import TagModel
 
-class BaseModel:
-    pass
+ALL_MODELS = [
+    EmptyModel,
+    TagModel,
+]
+
+MODELS = {m.NAME: m for m in ALL_MODELS}

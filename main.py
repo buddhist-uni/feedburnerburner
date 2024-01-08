@@ -3,21 +3,20 @@ from pathlib import Path
 import yaml
 
 from utils import (
-    FileSyncedSet,
     system_open,
     prompt,
     radio_dial
 )
-from models import FeedEntry
+from models.feed import FeedEntry
+from settings import (
+    settings,
+    SETTINGS_FILE,
+    unread_entries,
+    db_dir,
+)
 
 import feedparser
 from yaspin import yaspin
-
-db_dir = Path("~/.feedburnerburner").expanduser()
-if not db_dir.exists():
-    db_dir.mkdir()
-unread_entries = FileSyncedSet(db_dir.joinpath('unread.tsv'), lambda e: e.fbbid)
-SETTINGS_FILE = db_dir.joinpath('settings.yaml')
 
 def display_loop(unread_items: list[FeedEntry]):
     for entry in unread_items:
@@ -73,10 +72,9 @@ if __name__ == '__main__':
                 unread_items.append(feed_entry)
     print(f"Found {len(unread_items)} unread items!")
     if len(unread_items) > 0 and SETTINGS_FILE.exists():
-        settings = yaml.safe_load(SETTINGS_FILE.read_text())
-        if settings['algo'] == "tagsubscriber":
-            domains = set(settings['domains'])
-            tags = set(settings['tags'])
+        if settings['algo'] == "tagsubscriber" or settings['algo'] == 'Favorite Tags/Domains':
+            domains = set(settings.get('domains'))
+            tags = set(settings.get('tags'))
             highpri = [item for item in unread_items if any(d in domains for d in item.domains_for_rating()) or any(t in tags for t in item.tags)]
             if len(highpri) == 0:
                 print("But none of them are important")
