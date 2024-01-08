@@ -6,3 +6,4 @@ titlecase
 PyYAML
 gensim
 scikit-learn
+nltk

@@ -61,7 +61,7 @@ if __name__ == '__main__':
             if selected_model.is_refinable() and prompt("Would you like to refine this model?"):
                selected_model.refine()
             if prompt("Use this model for your feed filter?"):
-               settings['algo'] = selected_model.NAME
+               settings['algo'] = selected_model.__class__.__name__
                settings['algo_params'] = selected_model.get_parameters()
                SETTINGS_FILE.write_text(yaml.dump(settings))
                print("Settings saved! Enjoy your feed :)")

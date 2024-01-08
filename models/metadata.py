@@ -63,25 +63,19 @@ class TagModel(BaseModel):
            return
         r = len(top_tags)
         print(f"""Top {r} tags are:""")
-        toplikes = set()
         for i in range(r):
             tag = top_tags[i]
-            toplikes.update(self.tags_cloud.likes[tag])
             print(f"{i+1}. {tag} ({len(self.tags_cloud.likes[tag])}/{len(self.tags_cloud.entries[tag])}={100.0*len(self.tags_cloud.likes[tag])/len(self.tags_cloud.entries[tag]):.1f}%)")
         s = len(top_domains)
         if s > 0:
             print(f"\nYour {s} top-liked domains are:")
             for i in range(s):
                 domain = top_domains[i]
-                toplikes.update(self.domains_cloud.likes[domain])
                 print(f"{i+1}. {domain} ({len(self.domains_cloud.likes[domain])}/{len(self.domains_cloud.entries[domain])}={len(self.domains_cloud.likes[domain])*100.0/len(self.domains_cloud.entries[domain]):.1f}%)")
-        recall = float(len(toplikes))/len(self.corpus.liked)
-        print(f"\nSubscribing to just these would have given you {len(toplikes)}/{int(len(self.corpus.liked))}={recall*100:.1f}% of the posts you've liked.")
         self.tags = top_tags
         self.domains = top_domains
         self.status = ModelStatus.Analyzed
-        self.recall = recall
-        self.precision = float(len(toplikes)) / len(self.tags_cloud.posts_with(self.tags) | self.domains_cloud.posts_with(self.domains))
+        self.calculate_stats()    
     def get_parameters(self):
        ret = super().get_parameters()
        ret['domains'] = self.domains
@@ -98,6 +92,8 @@ class TagModel(BaseModel):
         selections = [d in self.domains for d in self.domains_cloud.tops]
         selections = checklist_prompt(self.domains_cloud.tops, default=selections)
         self.domains = [self.domains_cloud.tops[i] for i in range(len(selections)) if selections[i]]
+        self.calculate_stats()
+    def calculate_stats(self):
         toplikes = set()
         for tag in self.tags:
             toplikes.update(self.tags_cloud.likes[tag])
