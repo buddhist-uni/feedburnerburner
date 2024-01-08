@@ -12,13 +12,27 @@ from main import (
 )
 from models import FeedEntry
 
+class TagCloud:
+   def __init__(self):
+      self.likes = defaultdict(list)
+      self.counts = defaultdict(float)
+   
+   def add_like(self, tag, entry):
+      self.counts[tag] += 1.0
+      self.likes[tag].append(entry)
+   
+   def add_dislike(self, tag):
+      self.counts[tag] += 1.0
+   
+   def top(self, N=30, min_likes=2, min_ratio=0.2):
+      ret = list(self.likes.keys())
+      ret = [k for k in ret if len(self.likes[k])>=min_likes and (len(self.likes[k])/self.counts[k])>=min_ratio]
+      ret.sort(key=lambda k: len(self.likes[k])/self.counts[k], reverse=True)
+      return ret[:N]
+
 entries = []
-tags = []
-tag_likes = defaultdict(list)
-tag_count = defaultdict(float)
-domains = []
-domain_counts = defaultdict(float)
-domain_likes = defaultdict(list)
+tags = TagCloud()
+domains = TagCloud()
 count = 0.0
 liked = 0.0
 with yaspin(text='Crunching the numbers...'):
@@ -31,35 +45,34 @@ with yaspin(text='Crunching the numbers...'):
         if entry.status == 'liked':
             liked += 1.0
         for tag in entry.tags:
-            tag_count[tag] += 1.0
             if entry.status == 'liked':
-                tag_likes[tag].append(entry)
+               tags.add_like(tag, entry)
+            else:
+               tags.add_dislike(tag)
         for domain in entry.domains_for_rating():
-           domain_counts[domain] += 1.0
            if entry.status == 'liked':
-              domain_likes[domain].append(entry)
-    tags = list(tag_count.keys())
-    domains = list(domain_likes.keys())
-    tags.sort(key=lambda k: len(tag_likes[k])/tag_count[k], reverse=True)
-    domains.sort(key=lambda k: len(domain_likes[k])/domain_counts[k], reverse=True)
-    tags = [k for k in tags if len(tag_likes[k])>1 and tag_count[k]>1 and len(tag_likes[k])/tag_count[k]>liked/count]
-    domains = [k for k in domains if len(domain_likes[k])>1 and len(domain_likes[k])/domain_counts[k]>liked/count]
-r = min(30, len(tags))
-print(f"So far you've liked {int(liked)}/{int(count)}={liked*100.0/count:.1f}% of the posts.")
+              domains.add_like(domain, entry)
+           else:
+              domains.add_dislike(domain)
+ratio = liked/count
+print(f"So far you've liked {int(liked)}/{int(count)}={ratio*100.0:.1f}% of the posts.")
+top_tags = tags.top(min_ratio=ratio)
+r = len(top_tags)
 if r > 0:
   print(f"""Top {r} tags are:""")
   toplikes = set()
   for i in range(r):
-    tag = tags[i]
-    toplikes.update(tag_likes[tag])
-    print(f"{i+1}. {tag} ({len(tag_likes[tag])}/{int(tag_count[tag])}={100.0*len(tag_likes[tag])/tag_count[tag]:.1f}%)")
-  s = min(30, len(domains))
+    tag = top_tags[i]
+    toplikes.update(tags.likes[tag])
+    print(f"{i+1}. {tag} ({len(tags.likes[tag])}/{int(tags.counts[tag])}={100.0*len(tags.likes[tag])/tags.counts[tag]:.1f}%)")
+  top_domains = domains.top(min_ratio=ratio)
+  s = len(top_domains)
   if s > 0:
      print(f"\nYour {s} top-liked domains are:")
      for i in range(s):
-        domain = domains[i]
-        toplikes.update(domain_likes[domain])
-        print(f"{i+1}. {domain} ({len(domain_likes[domain])}/{int(domain_counts[domain])}={len(domain_likes[domain])*100.0/domain_counts[domain]:.1f}%)")
+        domain = top_domains[i]
+        toplikes.update(domains.likes[domain])
+        print(f"{i+1}. {domain} ({len(domains.likes[domain])}/{int(domains.counts[domain])}={len(domains.likes[domain])*100.0/domains.counts[domain]:.1f}%)")
   print(f"\nSubscribing to just these would have given you {len(toplikes)}/{int(liked)}={len(toplikes)*100.0/liked:.1f}% of the posts you've liked.")
   if prompt("Would you like to filter your posts based on the above? (n=See all, ctrl+c to Cancel)"):
     print("Select the tags you'd like to subscribe to:")
@@ -70,9 +83,9 @@ if r > 0:
     domains = [domains[i] for i in range(s) if selections[i]]
     toplikes = set()
     for tag in tags:
-       toplikes.update(tag_likes[tag])
+       toplikes.update(tags.likes[tag])
     for domain in domains:
-       toplikes.update(domain_likes[domain])
+       toplikes.update(domains.likes[domain])
     print(f"\nSubscribing to just these would have given you {len(toplikes)}/{int(liked)}={len(toplikes)*100.0/liked:.1f}% of the posts you've liked.")
     SETTINGS_FILE.write_text(yaml.dump({
        "algo": "tagsubscriber",
