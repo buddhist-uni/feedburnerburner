@@ -9,8 +9,8 @@ from main import (
     SETTINGS_FILE,
     yaspin,
     db_dir,
-    FeedEntry
 )
+from models import FeedEntry
 
 entries = []
 tags = []
