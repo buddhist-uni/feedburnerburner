@@ -25,8 +25,8 @@ class TagCloud:
         ret = list(self.likes.keys())
         ret = [k for k in ret if len(self.likes[k]) >= min_likes and (
             len(self.likes[k]) / len(self.entries[k])) >= min_ratio]
-        ret.sort(key=lambda k: len(
-            self.likes[k]) / len(self.entries[k]), reverse=True)
+        ret.sort(key=lambda k: len(self.likes[k]) / len(self.entries[k]),
+                 reverse=True)
         self.tops = ret[:N]
         return self.tops
 
@@ -131,11 +131,6 @@ class TagModel(BaseModel):
             toplikes.update(self.tags_cloud.likes[tag])
         for domain in self.domains:
             toplikes.update(self.domains_cloud.likes[domain])
-        self.precision = float(
-            len(toplikes)) / len(
-            self.tags_cloud.posts_with(
-                self.tags) | self.domains_cloud.posts_with(
-                self.domains))
+        self.precision = float(len(toplikes)) / len(self.tags_cloud.posts_with(self.tags) | self.domains_cloud.posts_with(self.domains))
         self.recall = float(len(toplikes)) / len(self.corpus.liked)
-        print(
-            f"\nSubscribing to just these would have given you {len(toplikes)}/{int(len(self.corpus.liked))}={100.0*self.recall:.1f}% of the posts you've liked.")
+        print(f"\nSubscribing to just these would have given you {len(toplikes)}/{int(len(self.corpus.liked))}={100.0*self.recall:.1f}% of the posts you've liked.")
