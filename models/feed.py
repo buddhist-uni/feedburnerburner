@@ -39,6 +39,12 @@ class FeedEntry:
             self.status = "unread"
             self.clicked_links = []
 
+    # Sort posts in Chronological Order by default
+    def __lt__(self, other):
+        return self.timestamp < other.timestamp
+    def __gt__(self, other):
+        return self.timestamp > other.timestamp
+
     @property
     def fbbid(self):
         return guid_to_fbbid(self.guid)

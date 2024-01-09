@@ -2,7 +2,8 @@
 
 from collections import defaultdict
 
-from models.base import Corpus
+from .feed import FeedEntry
+from .base import Corpus
 from utils import checklist_prompt
 
 from .base import BaseModel, ModelStatus
@@ -38,8 +39,19 @@ class TagModel(BaseModel):
     MIN_DATA = "one tag or domain with two likes"
     def __init__(self, corpus: Corpus = None, **kwargs):
         super().__init__(corpus=corpus, **kwargs)
-        self.tags = kwargs.get('tags') or []
-        self.domains = kwargs.get('domains') or []
+        self.tags = set(kwargs.get('tags') or [])
+        self.domains = set(kwargs.get('domains') or [])
+    def get_cutoff(self):
+        return 1
+    def score(self, post: FeedEntry):
+        ret = 0
+        for domain in post.domains_for_rating():
+            if domain in self.domains:
+               ret += 1
+        for tag in post.tags:
+            if tag in self.tags:
+               ret += 1
+        return ret
     def analyze(self):
         self.tags_cloud = TagCloud()
         self.domains_cloud = TagCloud()
@@ -59,7 +71,7 @@ class TagModel(BaseModel):
         top_domains = self.domains_cloud.top(min_ratio=ratio)
         if len(top_domains) + len(top_tags) == 0:
            self.status = ModelStatus.Invalid
-           print("You haven't liked any tags or domains enought times yet to recommend following any of them, unfortunately.")
+           print("You haven't liked any tags or domains enough times yet to recommend following any of them, unfortunately.")
            return
         r = len(top_tags)
         print(f"""Top {r} tags are:""")
@@ -84,15 +96,17 @@ class TagModel(BaseModel):
     def is_refinable(self):
        return self.status == ModelStatus.Analyzed
     def refine(self):
+      if len(self.tags_cloud.tops) > 0:
         print("Select the tags you'd like to subscribe to:")
         selections = [t in self.tags for t in self.tags_cloud.tops]
         selections = checklist_prompt(self.tags_cloud.tops, default=selections)
         self.tags = [self.tags_cloud.tops[i] for i in range(len(selections)) if selections[i]]
+      if len(self.domains_cloud.tops) > 0:
         print("Please select domains to subscribe to:")
         selections = [d in self.domains for d in self.domains_cloud.tops]
         selections = checklist_prompt(self.domains_cloud.tops, default=selections)
         self.domains = [self.domains_cloud.tops[i] for i in range(len(selections)) if selections[i]]
-        self.calculate_stats()
+      self.calculate_stats()
     def calculate_stats(self):
         toplikes = set()
         for tag in self.tags:

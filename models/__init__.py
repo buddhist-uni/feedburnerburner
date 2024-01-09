@@ -8,4 +8,4 @@ ALL_MODELS = [
     TagModel,
 ]
 
-MODELS = {m.__class__.__name__: m for m in ALL_MODELS}
+MODELS = {m.__name__: m for m in ALL_MODELS}

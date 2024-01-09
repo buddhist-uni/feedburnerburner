@@ -1,6 +1,7 @@
 #!/bin/python3
 
 from .base import BaseModel, ModelStatus
+from .feed import FeedEntry
 
 class EmptyModel(BaseModel):
     NAME = "No Filter"
@@ -14,3 +15,7 @@ class EmptyModel(BaseModel):
     @property
     def precision(self):
         return self.corpus.calculate_like_ratio()
+    def score(self, post: FeedEntry):
+        return 1
+    def get_cutoff(self):
+        return 1

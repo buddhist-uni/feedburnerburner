@@ -7,6 +7,7 @@ from utils import (
     prompt,
     radio_dial
 )
+from models import MODELS
 from models.feed import FeedEntry
 from settings import (
     settings,
@@ -55,6 +56,22 @@ def display_loop(unread_items: list[FeedEntry]):
             unread_entries.remove(entry)
             continue
 
+def _run_model(unread_items):
+    if settings.get('algo') and settings['algo'] != 'EmptyModel':
+        ModelClass = MODELS.get(settings['algo'])
+        if not ModelClass:
+            print(f"ERROR: Unknown model {settings['algo']}.")
+            print("Perhaps you need to update your software?")
+            return unread_items
+        model = ModelClass(**settings.get('algo_params'))
+        (highpri, lowpri) = model.split_and_rank_posts(unread_items)
+        if len(highpri) == 0:
+            print("But none of them are important")
+        else:
+            print(f"{len(highpri)} of them are in your priority inbox:")
+            display_loop(highpri)
+        return lowpri
+
 if __name__ == '__main__':
     unread_items: list[FeedEntry] = []
     with yaspin(text="Loading feed..."):
@@ -72,19 +89,10 @@ if __name__ == '__main__':
                 unread_items.append(feed_entry)
     print(f"Found {len(unread_items)} unread items!")
     if len(unread_items) > 0 and SETTINGS_FILE.exists():
-        if settings['algo'] == "tagsubscriber" or settings['algo'] == 'Favorite Tags/Domains':
-            domains = set(settings.get('domains'))
-            tags = set(settings.get('tags'))
-            highpri = [item for item in unread_items if any(d in domains for d in item.domains_for_rating()) or any(t in tags for t in item.tags)]
-            if len(highpri) == 0:
-                print("But none of them are important")
-            else:
-                print(f"{len(highpri)} of them are marked priority based on the tags and domains you're subscribed to:")
-                display_loop(highpri)
-                unread_items = [item for item in unread_items if item not in highpri]
-            if len(unread_items) > 0:
-                if not prompt("Continue to read the unimportant posts?"):
-                    print("Sounds good! Enjoy your day! :)")
-                    quit()
+        unread_items = _run_model(unread_items)
+        if len(unread_items) > 0:
+            if not prompt("Continue to read the unimportant posts?"):
+                print("Sounds good! Enjoy your day! :)")
+                quit()
     display_loop(unread_items)
     print("That's all for now, folks!")
