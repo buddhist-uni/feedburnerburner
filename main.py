@@ -19,6 +19,7 @@ from settings import (
 import feedparser
 from yaspin import yaspin
 
+
 def display_loop(unread_items: list[FeedEntry]):
     for entry in unread_items:
         print("Would you like to open this one?")
@@ -28,7 +29,7 @@ def display_loop(unread_items: list[FeedEntry]):
         choice = radio_dial([
             "Not interested",
             "Show again later",
-        ]+links)
+        ] + links)
         if choice == 0:
             entry.status = "skipped"
             entry.save()
@@ -38,13 +39,13 @@ def display_loop(unread_items: list[FeedEntry]):
             continue
         while choice > 1:
             print("  How was it?")
-            link = links.pop(choice-2)
+            link = links.pop(choice - 2)
             entry.clicked_links.append(link)
             system_open(link)
             choice = radio_dial([
                 "Waste of time",
                 "Worthwhile",
-            ]+links)
+            ] + links)
         if choice == 0:
             entry.status = "disliked"
             entry.save()
@@ -55,6 +56,7 @@ def display_loop(unread_items: list[FeedEntry]):
             entry.save()
             unread_entries.remove(entry)
             continue
+
 
 def _run_model(unread_items):
     if settings.get('algo') and settings['algo'] != 'EmptyModel':
@@ -72,6 +74,7 @@ def _run_model(unread_items):
             display_loop(highpri)
         return lowpri
 
+
 if __name__ == '__main__':
     unread_items: list[FeedEntry] = []
     with yaspin(text="Loading feed..."):
@@ -79,8 +82,11 @@ if __name__ == '__main__':
             fbbid = fbbid.replace("\n", "")
             if not fbbid:
                 continue
-            unread_items.append(FeedEntry(json_file=db_dir.joinpath(f"{fbbid}.json")))
-        latest_feed = feedparser.parse('https://feeds.feedburner.com/Metafilter')
+            unread_items.append(
+                FeedEntry(
+                    json_file=db_dir.joinpath(f"{fbbid}.json")))
+        latest_feed = feedparser.parse(
+            'https://feeds.feedburner.com/Metafilter')
         for entry in latest_feed.entries:
             feed_entry = FeedEntry(feed_entry=entry, db_dir=db_dir)
             if not feed_entry.file_path.exists():

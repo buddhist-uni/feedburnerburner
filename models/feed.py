@@ -8,11 +8,14 @@ from time import mktime
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 
+
 def guid_to_fbbid(guid: str) -> str:
     return guid.replace(":", "=").replace(",", "_")
 
+
 class FeedEntry:
-    def __init__(self, feed_entry: feedparser.FeedParserDict = None, json_file: Path = None, db_dir: Path = None):
+    def __init__(self, feed_entry: feedparser.FeedParserDict = None,
+                 json_file: Path = None, db_dir: Path = None):
         if json_file:
             self.file_path = json_file
             data = json.loads(json_file.read_text())
@@ -27,7 +30,8 @@ class FeedEntry:
             self.clicked_links = data.get('clicked_links') or []
         if feed_entry:
             if not db_dir:
-                raise RuntimeError("FeedEntry needs either a json_file or db_dir Path")
+                raise RuntimeError(
+                    "FeedEntry needs either a json_file or db_dir Path")
             self.title = feed_entry.get('title')
             self.summary = feed_entry.get('summary')
             self.author = feed_entry.get('author')
@@ -42,6 +46,7 @@ class FeedEntry:
     # Sort posts in Chronological Order by default
     def __lt__(self, other):
         return self.timestamp < other.timestamp
+
     def __gt__(self, other):
         return self.timestamp > other.timestamp
 
@@ -58,16 +63,17 @@ class FeedEntry:
     @cache
     def links(self):
         return [a['href'] for a in self.soup.find_all('a', href=True)]
-    
+
     def links_for_rating(self):
         if self.status == "liked":
             return self.clicked_links or self.links
         else:
             return self.links
-    
+
     def domains_for_rating(self):
         links = self.links_for_rating()
-        return list({'.'.join(urlparse(url).hostname.split('.')[-2:]) for url in links})
+        return list(
+            {'.'.join(urlparse(url).hostname.split('.')[-2:]) for url in links})
 
     def save(self):
         self.file_path.write_text(self.json())

@@ -10,7 +10,9 @@ from utils import (
 db_dir = Path("~/.feedburnerburner").expanduser()
 if not db_dir.exists():
     db_dir.mkdir()
-unread_entries = FileSyncedSet(db_dir.joinpath('unread.tsv'), lambda e: e.fbbid)
+unread_entries = FileSyncedSet(
+    db_dir.joinpath('unread.tsv'),
+    lambda e: e.fbbid)
 SETTINGS_FILE = db_dir.joinpath('settings.yaml')
 
 settings = {}
