@@ -21,8 +21,9 @@ from .feed import FeedEntry
 from settings import db_dir
 
 stemmer = SnowballStemmer('english')
+tokenizer = NLTKWordTokenizer()
 def stemmed_nltk_tokenizer(s):
-    tokens = NLTKWordTokenizer().tokenize(s)
+    tokens = tokenizer.tokenize(s)
     tokens = [t[:-1] if t.endswith('.') else t for t in tokens]
     return [stemmer.stem(token) for token in tokens]
 
@@ -30,7 +31,7 @@ class LinearModel(BaseModel):
     NAME = "Linear Regressor"
     DESCRIPTION = "A Ridge classifier over normalized Tf-Idf Vectors"
     MIN_DATA = "25 likes and dislikes"
-    MIN_DOCS_WITH_TERM = 1
+    MIN_DOCS_WITH_TERM = 2
     MIN_CHI2 = 0.02
 
     def __init__(self, corpus: Corpus = None, **kwargs):
@@ -114,7 +115,7 @@ class LinearModel(BaseModel):
             entry.get_text_for_training() for entry in corpus
         ))
         _, docs_with_term, _ = destructure(word_counts)
-        has_min_docs = np.bincount(docs_with_term) > self.MIN_DOCS_WITH_TERM
+        has_min_docs = np.bincount(docs_with_term) >= self.MIN_DOCS_WITH_TERM
         trans = TfidfTransformer()
         X = trans.fit_transform(word_counts)
         cs, _ = chi2(X, Y)

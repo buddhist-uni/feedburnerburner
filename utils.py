@@ -28,24 +28,14 @@ ANSI_ERASE_HERE_TO_LINE_END = "\033[0K"
 
 def ANSI_RETURN_N_UP(n):
     return f"\033[{n}F"
-
-
 def ANSI_RETURN_N_DOWN(n):
     return f"\033[{n}E"
-
-
 def ANSI_MOVE_LEFT(n):
     return f"\033[{n}D"
-
-
 def ANSI_MOVE_RIGHT(n):
     return f"\033[{n}C"
-
-
 def ANSI_MOVE_DOWN(n):
     return f"\033[{n}B"
-
-
 def ANSI_MOVE_UP(n):
     return f"\033[{n}A"
 # For more, see https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
@@ -54,25 +44,6 @@ def ANSI_MOVE_UP(n):
 whitespace = re.compile('\\s+')
 digits = re.compile('(\\d+)')
 italics = re.compile('</?(([iI])|(em))[^<>nm]*>')
-MONTHS = [
-    'jan',
-    'feb',
-    'mar',
-    'apr',
-    'may',
-    'jun',
-    'jul',
-    'aug',
-    'sep',
-    'oct',
-    'nov',
-    'dec']
-abnormalchars = re.compile('[^\\w\\s]')
-sutta_id_re = re.compile(r'^([a-zA-Z]+)(\d+)[\.]?([-–\d]*)$')
-
-HOSTNAME_BLACKLIST = {
-    "www.questia.com",
-}
 
 git_root_folder = Path(
     os.path.normpath(
@@ -312,17 +283,6 @@ def input_with_tab_complete(prompt, typeahead_suggestions):
 
 def trunc(longstr, maxlen=12) -> str:
     return longstr if len(longstr) <= maxlen else (longstr[:maxlen - 1] + '…')
-
-
-def does_md_only_contain_quotes(text):
-    paragraphs = list(
-        filter(
-            lambda p: not not p, map(
-                lambda p: p.strip(), text.split("\n\n"))))
-    for p in paragraphs:
-        if not p.startswith('>'):
-            return False
-    return True
 
 
 def random_letters(length):
