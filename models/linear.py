@@ -1,5 +1,6 @@
 #!/bin/python3
 
+import time
 import numpy as np
 import joblib
 from math import log10
@@ -58,10 +59,12 @@ class LinearModel(BaseModel):
             token_pattern=None,
             vocabulary=dictionary,
         )
+        print(f"Compiled a dictionary with {len(dictionary)} terms")
         with yaspin(text="Extracting features..."):
             X = self.vectorizer.fit_transform((
                 entry.get_text_for_training() for entry in corpus
             ))
+        started_at = time.time()
         self.model = RidgeClassifierCV(
             store_cv_values=True,
             scoring="balanced_accuracy",
@@ -70,7 +73,7 @@ class LinearModel(BaseModel):
         with yaspin(text="Fitting a model..."):
             self.model.fit(X, Y)
         alpha = round(log10(self.model.alpha_)) + 5
-        print(f"Done fitting.\nSelected smoothing level {alpha} (α={self.model.alpha_})")
+        print(f"Done fitting in {time.time() - started_at:.3f} seconds.\nSelected smoothing level {alpha} (α={self.model.alpha_})")
         # Use the model's provided Cross Validation data to select the optimal cutoff
         # and to accurately estimate the model's accuracy because the default
         # cutoff of 0 is not always ideal and because model.best_score_ is overfit
@@ -90,7 +93,7 @@ class LinearModel(BaseModel):
         self.accuracy = accuracy[max_accuracy_i]
         self.precision = precision[max_accuracy_i]
         self.recall = recall[max_accuracy_i]
-        print(f"Cross-validation predicts a max accuracy of {self.accuracy*100:.1f}% at cutoff={self.cutoff}\n")
+        print(f"Cross-validation predicts an accuracy of P={self.precision*100:.0f}% × R={self.recall*100:.0f}% = {self.accuracy*100:.1f}% at cutoff={self.cutoff}\n")
         self.status = ModelStatus.Analyzed
 
     def score(self, post: FeedEntry):
