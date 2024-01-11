@@ -4,6 +4,7 @@ from functools import cache
 import feedparser
 from pathlib import Path
 import json
+import re
 from time import mktime
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
@@ -63,6 +64,19 @@ class FeedEntry:
     @cache
     def links(self):
         return [a['href'] for a in self.soup.find_all('a', href=True)]
+    
+    @cache
+    def parsable_links(self):
+        ret = []
+        for url in self.links:
+            parse = urlparse(url)
+            host = parse.hostname.split('.')
+            readable = []
+            readable.append('.'.join(host[-2:]))
+            path = re.split(r'[., +=_&:;~/<>-]+|%20', parse.path)
+            readable.extend([p for p in path if p.isalpha()])
+            ret.append(' '.join(readable))
+        return ret
 
     def links_for_rating(self):
         if self.status == "liked":
@@ -77,6 +91,24 @@ class FeedEntry:
 
     def save(self):
         self.file_path.write_text(self.json())
+    
+    @cache
+    def get_text_for_training(self):
+        """A single string representing the post in a matter suitable for a Bag-of-Words model"""
+        ret = []
+        TITLE_WEIGHT = 2
+        SUMMARY_WEIGHT = 1
+        TAGS_WEIGHT = 3
+        URLS_WEIGHT = 1
+        for _ in range(TITLE_WEIGHT):
+            ret.append(self.title)
+        for _ in range(SUMMARY_WEIGHT):
+            ret.append(self.soup.get_text().encode('utf-8', errors='ignore').decode('utf-8'))
+        for _ in range(TAGS_WEIGHT):
+            ret.extend(self.tags)
+        for _ in range(URLS_WEIGHT):
+            ret.extend(self.parsable_links())
+        return ' '.join(ret)
 
     def json(self) -> str:
         return json.dumps({

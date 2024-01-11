@@ -97,7 +97,7 @@ class TagModel(BaseModel):
         self.tags = top_tags
         self.domains = top_domains
         self.status = ModelStatus.Analyzed
-        self.calculate_stats()
+        self._calculate_stats()
 
     def get_parameters(self):
         ret = super().get_parameters()
@@ -123,9 +123,9 @@ class TagModel(BaseModel):
                 self.domains_cloud.tops, default=selections)
             self.domains = [self.domains_cloud.tops[i]
                             for i in range(len(selections)) if selections[i]]
-        self.calculate_stats()
+        self._calculate_stats()
 
-    def calculate_stats(self):
+    def _calculate_stats(self):
         toplikes = set()
         for tag in self.tags:
             toplikes.update(self.tags_cloud.likes[tag])

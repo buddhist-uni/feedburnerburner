@@ -38,12 +38,16 @@ sqrt(P*R) => 45%
 MODELS:
 """ + '\n'.join([f"- {model.NAME} Model\n  {model.DESCRIPTION}" for model in ALL_MODELS]) + "\n"
 
-if __name__ == '__main__':
+def load_corpus():
     corpus = Corpus()
     with yaspin(text='Loading...'):
         for fd in db_dir.iterdir():
             if fd.name.endswith('.json'):
                 corpus.add_entry(FeedEntry(json_file=fd))
+    return corpus
+
+if __name__ == '__main__':
+    corpus = load_corpus()
     models = [MC(corpus) for MC in ALL_MODELS]
     while True:
         print("Choose a model:")
