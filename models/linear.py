@@ -38,7 +38,7 @@ class LinearModel(BaseModel):
     def analyze(self):
         corpus = [entry for entry in self.corpus.entries - self.corpus.unseen]
         Y = [1.0 if entry.status == "liked" else 0.0 for entry in corpus]
-        with yaspin(text="Compiling dictionary"):
+        with yaspin(text="Compiling dictionary..."):
             dictionary = self.create_dictionary(corpus, Y)
         self.vectorizer = TfidfVectorizer(
             tokenizer=stemmed_nltk_tokenizer,
@@ -46,7 +46,7 @@ class LinearModel(BaseModel):
             token_pattern=None,
             vocabulary=dictionary,
         )
-        with yaspin(text="Extracting features"):
+        with yaspin(text="Extracting features..."):
             X = self.vectorizer.fit_transform((
                 entry.get_text_for_training() for entry in corpus
             ))
@@ -55,15 +55,18 @@ class LinearModel(BaseModel):
             scoring="balanced_accuracy",
             alphas=(0.00001, 0.0001, 0.001, 0.01, 0.1, 1),
         )
-        with yaspin(text="Fitting a model"):
+        with yaspin(text="Fitting a model..."):
             self.model.fit(X, Y)
         alpha = round(log10(self.model.alpha_)) + 5
         print(f"Done fitting.\nSelected smoothing level {alpha} (α={self.model.alpha_})")
+        # Use the model's provided Cross Validation data to select the optimal cutoff
+        # and to accurately estimate the model's accuracy (model.best_score_ is overfit)
         Y_p = self.model.cv_values_
         true_positives = [(Y_p[i][0][alpha], Y[i]) for i in range(len(Y))]
         true_positives.sort()
         true_positives = np.array(true_positives)
         positive_cumsum = np.cumsum(true_positives[:, 1])
+        # roll the cumsum forward by one because the cutoff will include that item
         positive_cumsum = np.roll(positive_cumsum, 1)
         positive_cumsum[0] = 0
         recall = 1.0 - (positive_cumsum / len(self.corpus.liked))
