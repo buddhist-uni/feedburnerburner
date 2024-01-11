@@ -1,6 +1,7 @@
 #!/bin/python3
 
 import numpy as np
+import joblib
 from math import log10
 from scipy.sparse import find as destructure
 from nltk.tokenize import NLTKWordTokenizer
@@ -15,6 +16,9 @@ from sklearn.linear_model import RidgeClassifierCV
 from yaspin import yaspin
 
 from .base import BaseModel, Corpus, ModelStatus
+from .feed import FeedEntry
+
+from settings import db_dir
 
 stemmer = SnowballStemmer('english')
 def stemmed_nltk_tokenizer(s):
@@ -34,6 +38,13 @@ class LinearModel(BaseModel):
         if corpus:
             if len(corpus.liked) < 25 or len(corpus.disliked) < 25:
                 self.status = ModelStatus.Invalid
+        self.cutoff = kwargs.get('cutoff')
+        if kwargs.get('model_file'):
+            self.model = joblib.load(db_dir.joinpath(kwargs['model_file']))
+            self.vectorizer = joblib.load(db_dir.joinpath(kwargs['vectorizer_file']))
+
+    def get_cutoff(self):
+        return self.cutoff
 
     def analyze(self):
         corpus = [entry for entry in self.corpus.entries - self.corpus.unseen]
@@ -60,7 +71,8 @@ class LinearModel(BaseModel):
         alpha = round(log10(self.model.alpha_)) + 5
         print(f"Done fitting.\nSelected smoothing level {alpha} (α={self.model.alpha_})")
         # Use the model's provided Cross Validation data to select the optimal cutoff
-        # and to accurately estimate the model's accuracy (model.best_score_ is overfit)
+        # and to accurately estimate the model's accuracy because the default
+        # cutoff of 0 is not always ideal and because model.best_score_ is overfit
         Y_p = self.model.cv_values_
         true_positives = [(Y_p[i][0][alpha], Y[i]) for i in range(len(Y))]
         true_positives.sort()
@@ -73,12 +85,28 @@ class LinearModel(BaseModel):
         precision = (len(self.corpus.liked) - positive_cumsum) / np.arange(len(Y), 0, -1)
         accuracy = np.sqrt(recall * precision)
         max_accuracy_i = np.argmax(accuracy)
-        self.cutoff = round(0.5*(true_positives[max_accuracy_i][0]+true_positives[max_accuracy_i-1][0]), 5)
+        self.cutoff = float(round(0.5*(true_positives[max_accuracy_i][0]+true_positives[max_accuracy_i-1][0]), 5))
         self.accuracy = accuracy[max_accuracy_i]
         self.precision = precision[max_accuracy_i]
         self.recall = recall[max_accuracy_i]
-        print(f"Cross-validation predicts a max accuracy of {self.accuracy*100:.1f}% at cutoff={self.cutoff}")
+        print(f"Cross-validation predicts a max accuracy of {self.accuracy*100:.1f}% at cutoff={self.cutoff}\n")
         self.status = ModelStatus.Analyzed
+
+    def score(self, post: FeedEntry):
+        x = self.vectorizer.transform([post.get_text_for_training(), ])
+        y_p = self.model.decision_function(x)
+        return float(y_p[0])
+
+    def get_parameters(self):
+        ret = super().get_parameters()
+        ret['cutoff'] = self.cutoff
+        VECTORIZER_FNAME = 'linear-vectorizer.pkl'
+        MODEL_FNAME = 'linear-model.pkl'
+        joblib.dump(self.vectorizer, db_dir.joinpath(VECTORIZER_FNAME), compress=True)
+        joblib.dump(self.model, db_dir.joinpath(MODEL_FNAME), compress=True)
+        ret['model_file'] = MODEL_FNAME
+        ret['vectorizer_file'] = VECTORIZER_FNAME
+        return ret
 
     def create_dictionary(self, corpus: list, Y: list):
         word_counter = CountVectorizer(tokenizer=stemmed_nltk_tokenizer, lowercase=False, token_pattern=None)
