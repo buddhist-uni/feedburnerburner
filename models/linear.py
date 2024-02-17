@@ -4,6 +4,7 @@ import time
 import numpy as np
 import joblib
 from math import log10
+from random import gauss
 from scipy.sparse import find as destructure
 from nltk.tokenize import NLTKWordTokenizer
 from nltk.stem.snowball import SnowballStemmer
@@ -44,6 +45,7 @@ class LinearModel(BaseModel):
         if kwargs.get('model_file'):
             self.model = joblib.load(db_dir.joinpath(kwargs['model_file']))
             self.vectorizer = joblib.load(db_dir.joinpath(kwargs['vectorizer_file']))
+            self.rmse = kwargs.get('rmse', 0)
 
     def get_cutoff(self):
         return self.cutoff
@@ -78,6 +80,9 @@ class LinearModel(BaseModel):
         # and to accurately estimate the model's accuracy because the default
         # cutoff of 0 is not always ideal and because model.best_score_ is overfit
         Y_p = self.model.cv_values_
+        errors = Y_p[:,0,alpha] - np.where(np.array(Y) == 1.0, 1.0, -1.0)
+        self.rmse = round(float(np.sqrt(np.mean(np.square(errors)))), 6)
+        print(f"Overall RMS Error of {self.rmse:.3f}")
         true_positives = [(Y_p[i][0][alpha], Y[i]) for i in range(len(Y))]
         true_positives.sort()
         true_positives = np.array(true_positives)
@@ -99,7 +104,9 @@ class LinearModel(BaseModel):
     def score(self, post: FeedEntry):
         x = self.vectorizer.transform([post.get_text_for_training(), ])
         y_p = self.model.decision_function(x)
-        return float(y_p[0])
+        if not self.rmse:
+            return float(y_p[0])
+        return float(y_p[0]) + gauss(sigma=self.rmse)
 
     def get_parameters(self):
         ret = super().get_parameters()
@@ -110,6 +117,7 @@ class LinearModel(BaseModel):
         joblib.dump(self.model, db_dir.joinpath(MODEL_FNAME), compress=True)
         ret['model_file'] = MODEL_FNAME
         ret['vectorizer_file'] = VECTORIZER_FNAME
+        ret['rmse'] = self.rmse
         return ret
 
     def create_dictionary(self, corpus: list, Y: list):
