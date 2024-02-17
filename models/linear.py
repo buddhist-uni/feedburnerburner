@@ -80,9 +80,6 @@ class LinearModel(BaseModel):
         # and to accurately estimate the model's accuracy because the default
         # cutoff of 0 is not always ideal and because model.best_score_ is overfit
         Y_p = self.model.cv_values_
-        errors = Y_p[:,0,alpha] - np.where(np.array(Y) == 1.0, 1.0, -1.0)
-        self.rmse = round(float(np.sqrt(np.mean(np.square(errors)))), 6)
-        print(f"Overall RMS Error of {self.rmse:.3f}")
         true_positives = [(Y_p[i][0][alpha], Y[i]) for i in range(len(Y))]
         true_positives.sort()
         true_positives = np.array(true_positives)
@@ -99,6 +96,14 @@ class LinearModel(BaseModel):
         self.precision = precision[max_accuracy_i]
         self.recall = recall[max_accuracy_i]
         print(f"Cross-validation predicts an accuracy of P={self.precision*100:.0f}% × R={self.recall*100:.0f}% = {self.accuracy*100:.1f}% at cutoff={self.cutoff}\n")
+        errors = [
+            (Y_p[i,0,alpha] - self.cutoff)
+            if (Y[i]==0.0 and Y_p[i,0,alpha]>self.cutoff) or (Y[i]==1.0 and Y_p[i,0,alpha]<self.cutoff)
+            else 0
+            for i in range(len(Y))
+        ]
+        self.rmse = round(float(np.sqrt(np.mean(np.square(errors)))), 6)
+        print(f"With a randomized cutoff fuzziness of {self.rmse}")
         self.status = ModelStatus.Analyzed
 
     def score(self, post: FeedEntry):
