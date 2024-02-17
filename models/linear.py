@@ -95,15 +95,14 @@ class LinearModel(BaseModel):
         self.accuracy = accuracy[max_accuracy_i]
         self.precision = precision[max_accuracy_i]
         self.recall = recall[max_accuracy_i]
-        print(f"Cross-validation predicts an accuracy of P={self.precision*100:.0f}% × R={self.recall*100:.0f}% = {self.accuracy*100:.1f}% at cutoff={self.cutoff}\n")
-        errors = [
+        final_errors = [
             (Y_p[i,0,alpha] - self.cutoff)
             if (Y[i]==0.0 and Y_p[i,0,alpha]>self.cutoff) or (Y[i]==1.0 and Y_p[i,0,alpha]<self.cutoff)
             else 0
             for i in range(len(Y))
         ]
-        self.rmse = round(float(np.sqrt(np.mean(np.square(errors)))), 6)
-        print(f"With a randomized cutoff fuzziness of {self.rmse}")
+        self.rmse = round(float(np.sqrt(np.mean(np.square(final_errors)))), 5)
+        print(f"Cross-validation predicts an accuracy of P={self.precision*100:.0f}% × R={self.recall*100:.0f}% = {self.accuracy*100:.1f}% at cutoff={self.cutoff}±{self.rmse}\n")
         self.status = ModelStatus.Analyzed
 
     def score(self, post: FeedEntry):
